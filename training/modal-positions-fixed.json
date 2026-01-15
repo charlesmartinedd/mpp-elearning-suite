@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "capturedAt": "2026-01-15T18:38:06.814Z",
+  "capturedAt": "2026-01-15T18:49:23.267Z",
   "viewportSize": {
     "width": 1920,
     "height": 953
@@ -9,99 +9,92 @@
     "homepage": {
       "scrollY": 0,
       "highlight": {
-        "top": "3.98%",
-        "left": "4.27%",
-        "width": "768px",
-        "height": "350px"
+        "top": "4.19%",
+        "left": "3.65%",
+        "width": "802px",
+        "height": "359px"
       },
       "modal": {
-        "top": "7.50%",
-        "left": "50.57%"
+        "top": "7.82%",
+        "left": "48.13%"
       }
     },
     "welcome-message": {
       "scrollY": 82,
       "highlight": {
-        "top": "18.56%",
-        "left": "5.26%",
-        "width": "768px",
-        "height": "350px"
+        "top": "18.88%",
+        "left": "5.16%",
+        "width": "802px",
+        "height": "359px"
       },
       "modal": {
-        "top": "0.00%",
-        "left": "0.00%"
+        "top": "23.66%",
+        "left": "50.26%"
       }
     },
     "mentor-benefits": {
       "scrollY": 702,
       "highlight": {
-        "top": "12.05%",
-        "left": "4.95%",
-        "width": "797px",
-        "height": "823px"
+        "top": "12.37%",
+        "left": "4.07%",
+        "width": "844px",
+        "height": "834px"
       },
       "modal": {
-        "top": "0.00%",
-        "left": "0.00%"
+        "top": "32.27%",
+        "left": "49.79%"
       }
     },
     "protege-benefits": {
       "scrollY": 702,
       "highlight": {
-        "top": "13.83%",
-        "left": "53.75%",
-        "width": "797px",
-        "height": "823px"
+        "top": "13.94%",
+        "left": "52.92%",
+        "width": "844px",
+        "height": "834px"
       },
       "modal": {
-        "top": "0.00%",
-        "left": "0.00%"
+        "top": "30.48%",
+        "left": "21.25%"
       }
     },
     "summit": {
       "scrollY": 1676,
       "highlight": {
-        "top": "25.48%",
-        "left": "17.55%",
-        "width": "1223px",
-        "height": "534px"
+        "top": "24.75%",
+        "left": "17.40%",
+        "width": "1255px",
+        "height": "524px"
       },
       "modal": {
-        "top": "0.00%",
-        "left": "0.00%"
+        "top": "1.31%",
+        "left": "71.35%"
       }
     },
     "footer": {
       "scrollY": 2987,
       "highlight": {
-        "top": "46.88%",
-        "left": "4.01%",
-        "width": "1800px",
-        "height": "499px"
+        "top": "32.72%",
+        "left": "3.13%",
+        "width": "1847px",
+        "height": "642px"
       },
       "modal": {
-        "top": "0.00%",
-        "left": "0.00%"
+        "top": "-12.22%",
+        "left": "5.42%"
       }
     },
     "complete": {
       "scrollY": 2987,
       "highlight": {
-        "top": "29.99%",
-        "left": "4.95%",
-        "width": "331px",
-        "height": "236px"
+        "top": "32.93%",
+        "left": "3.13%",
+        "width": "1847px",
+        "height": "642px"
       },
       "modal": {
-        "top": "0.00%",
-        "left": "0.00%"
-      }
-    },
-    "tour-complete": {
-      "scrollY": 2987,
-      "modal": {
-        "top": "44.49%",
-        "left": "33.87%"
+        "top": "4.56%",
+        "left": "38.96%"
       }
     }
   }

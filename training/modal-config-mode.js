@@ -443,16 +443,27 @@
         this.saveHighlightPosition(resolvedStepId);
       }
 
-      // Save modal position (force save regardless of drag state)
-      const rect = shepherdModal.getBoundingClientRect();
+      // Save modal position - PRESERVE position already saved by drag handler
       if (!this.positions[resolvedStepId]) {
         this.positions[resolvedStepId] = {};
       }
       this.positions[resolvedStepId].scrollY = window.scrollY;
-      this.positions[resolvedStepId].modal = {
-        top: ((rect.top / window.innerHeight) * 100).toFixed(2) + '%',
-        left: ((rect.left / window.innerWidth) * 100).toFixed(2) + '%'
-      };
+
+      // Check if modal position was already saved by drag handler
+      const existingModal = this.positions[resolvedStepId].modal;
+
+      // Only calculate new position if none exists yet
+      if (!existingModal) {
+        const rect = shepherdModal.getBoundingClientRect();
+        const modalTop = ((rect.top / window.innerHeight) * 100).toFixed(2) + '%';
+        const modalLeft = ((rect.left / window.innerWidth) * 100).toFixed(2) + '%';
+
+        this.positions[resolvedStepId].modal = {
+          top: modalTop,
+          left: modalLeft
+        };
+      }
+      // If position already exists from dragging, keep it!
 
       // Visual feedback
       const btn = document.getElementById('config-save-step');
