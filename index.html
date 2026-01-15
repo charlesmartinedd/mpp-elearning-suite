@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MPP eLearning Suite - DoD Mentor-Protege Program</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+        }
+        .container {
+            text-align: center;
+            max-width: 900px;
+            padding: 40px;
+        }
+        .logo {
+            margin-bottom: 20px;
+        }
+        .logo svg {
+            width: 80px;
+            height: 80px;
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #c9a227, #f4d03f);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .subtitle {
+            font-size: 1.2rem;
+            color: #a0a0a0;
+            margin-bottom: 50px;
+        }
+        .cards {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(201, 162, 39, 0.3);
+            border-radius: 16px;
+            padding: 40px 30px;
+            width: 350px;
+            text-decoration: none;
+            color: #fff;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: #c9a227;
+            box-shadow: 0 20px 40px rgba(201, 162, 39, 0.2);
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #c9a227, #f4d03f);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .card:hover::before {
+            opacity: 1;
+        }
+        .card-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+        .card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: #f4d03f;
+        }
+        .card p {
+            color: #a0a0a0;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+        .card .badge {
+            display: inline-block;
+            background: rgba(201, 162, 39, 0.2);
+            color: #f4d03f;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            margin-top: 20px;
+        }
+        footer {
+            margin-top: 60px;
+            color: #666;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="50" cy="50" r="45" stroke="#c9a227" stroke-width="3" fill="none"/>
+                <path d="M30 50 L45 65 L70 35" stroke="#f4d03f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+            </svg>
+        </div>
+        <h1>MPP eLearning Suite</h1>
+        <p class="subtitle">DoD Mentor-Protege Program Training Resources</p>
+
+        <div class="cards">
+            <a href="dashboard/Dashboard.html" class="card">
+                <div class="card-icon">&#x1F4CA;</div>
+                <h2>Portal Dashboard</h2>
+                <p>Explore the complete MPP Portal interface with all 20 pages including Agreements, Applications, Resources, and Team Management.</p>
+                <span class="badge">20 Pages</span>
+            </a>
+
+            <a href="training/index.html" class="card">
+                <div class="card-icon">&#x1F393;</div>
+                <h2>Interactive Training</h2>
+                <p>Guided walkthrough with voiceover narration, interactive hotspots, and knowledge check quiz. Learn the portal step-by-step.</p>
+                <span class="badge">8-Step Tour</span>
+            </a>
+        </div>
+
+        <footer>
+            <p>DoD Mentor-Protege Program | eLearning Suite v1.0</p>
+        </footer>
+    </div>
+</body>
+</html>
