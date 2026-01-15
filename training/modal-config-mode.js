@@ -575,14 +575,26 @@
       if (window.Shepherd?.activeTour?.currentStep?.id) {
         return window.Shepherd.activeTour.currentStep.id;
       }
-      // Fallback to DOM attribute
+
       const shepherdModal = document.querySelector('.shepherd-element');
-      if (shepherdModal?.dataset?.shepherdStepId) {
+      if (!shepherdModal) return null;
+
+      // Try extracting from pos-step-{id} class (very reliable)
+      const classList = shepherdModal.className || '';
+      const posStepMatch = classList.match(/pos-step-(\w+)/);
+      if (posStepMatch && posStepMatch[1]) {
+        return posStepMatch[1];
+      }
+
+      // Fallback to DOM attribute
+      if (shepherdModal.dataset?.shepherdStepId) {
         return shepherdModal.dataset.shepherdStepId;
       }
-      // Last resort: use title text
-      const titleEl = shepherdModal?.querySelector('.shepherd-text h3');
+
+      // Last resort: use title text (generates inconsistent IDs - avoid if possible)
+      const titleEl = shepherdModal.querySelector('.shepherd-text h3');
       if (titleEl?.textContent) {
+        console.warn('[ModalConfigMode] Using title fallback for step ID - may cause issues');
         return titleEl.textContent
           .toLowerCase()
           .replace(/[^a-z0-9\s]/g, '')
