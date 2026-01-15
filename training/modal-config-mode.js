@@ -22,6 +22,8 @@
     dragState: null,
     highlightBox: null,
     currentStepId: null,
+    modalWasDragged: false,
+    highlightWasMoved: false,
 
     /**
      * Initialize the config mode listeners
@@ -95,14 +97,14 @@
         border: 4px solid #c9a227;
         border-radius: 8px;
         background: transparent;
-        z-index: 99998;
+        z-index: 999998;
         cursor: move;
         width: 300px;
         height: 200px;
         top: 30%;
         left: 30%;
-        box-shadow: 0 0 0 9999px rgba(0,0,0,0.7);
-        pointer-events: auto;
+        box-shadow: 0 0 0 9999px rgba(0,0,0,0.85);
+        pointer-events: auto !important;
       `;
 
       // Add styles for resize handles and label
@@ -125,11 +127,13 @@
         }
         #config-highlight-box .resize-handle {
           position: absolute;
-          width: 16px;
-          height: 16px;
+          width: 20px;
+          height: 20px;
           background: #c9a227;
           border: 2px solid #1a2744;
           border-radius: 4px;
+          z-index: 999999;
+          pointer-events: auto !important;
         }
         #config-highlight-box .resize-nw { top: -8px; left: -8px; cursor: nw-resize; }
         #config-highlight-box .resize-ne { top: -8px; right: -8px; cursor: ne-resize; }
@@ -228,27 +232,70 @@
 
     /**
      * Save highlight box position for current step
+     * Always gets step ID fresh from Shepherd API to avoid stale references
      */
-    saveHighlightPosition() {
-      if (!this.highlightBox || !this.currentStepId) return;
+    saveHighlightPosition(forceStepId = null) {
+      if (!this.highlightBox) return;
+
+      // Get current step ID from Shepherd API (most reliable)
+      const stepId = forceStepId ||
+                     this.getCurrentStepId() ||
+                     this.currentStepId;
+
+      if (!stepId) return;
+
+      // Sync our tracking variables
+      this.currentStepId = stepId;
+      this.lastStepTitle = stepId;
 
       const rect = this.highlightBox.getBoundingClientRect();
 
       // Initialize position entry if not exists
-      if (!this.positions[this.currentStepId]) {
-        this.positions[this.currentStepId] = {};
+      if (!this.positions[stepId]) {
+        this.positions[stepId] = {};
       }
 
-      this.positions[this.currentStepId].scrollY = window.scrollY;
-      this.positions[this.currentStepId].highlight = {
+      this.positions[stepId].scrollY = window.scrollY;
+      this.positions[stepId].highlight = {
         top: ((rect.top / window.innerHeight) * 100).toFixed(2) + '%',
         left: ((rect.left / window.innerWidth) * 100).toFixed(2) + '%',
         width: rect.width + 'px',
         height: rect.height + 'px'
       };
 
-      console.log(`[ModalConfigMode] Saved highlight for "${this.currentStepId}":`,
-        this.positions[this.currentStepId].highlight);
+      console.log(`[ModalConfigMode] Saved highlight for "${stepId}":`,
+        this.positions[stepId].highlight);
+    },
+
+    /**
+     * Save modal position for current step (only if it was dragged)
+     */
+    saveModalPosition(modal) {
+      if (!modal || !this.currentStepId) return;
+
+      // Only save if modal was actually dragged by user
+      if (!this.modalWasDragged) {
+        console.log(`[ModalConfigMode] Modal not dragged, skipping save for "${this.currentStepId}"`);
+        return;
+      }
+
+      const rect = modal.getBoundingClientRect();
+
+      // Initialize position entry if not exists
+      if (!this.positions[this.currentStepId]) {
+        this.positions[this.currentStepId] = {};
+      }
+
+      this.positions[this.currentStepId].modal = {
+        top: ((rect.top / window.innerHeight) * 100).toFixed(2) + '%',
+        left: ((rect.left / window.innerWidth) * 100).toFixed(2) + '%'
+      };
+
+      console.log(`[ModalConfigMode] Saved modal for "${this.currentStepId}":`,
+        this.positions[this.currentStepId].modal);
+
+      // Reset flag for next step
+      this.modalWasDragged = false;
     },
 
     /**
@@ -264,7 +311,7 @@
     },
 
     /**
-     * Show visual indicator that config mode is active
+     * Show visual indicator that config mode is active (with save buttons)
      */
     showIndicator() {
       if (this.indicator) return;
@@ -272,37 +319,71 @@
       this.indicator = document.createElement('div');
       this.indicator.id = 'modal-config-indicator';
       this.indicator.innerHTML = `
-        <div style="
+        <div class="config-toolbar" style="
           position: fixed;
           top: 10px;
           left: 50%;
           transform: translateX(-50%);
-          background: #ff6b35;
+          background: #1a2744;
           color: white;
-          padding: 8px 16px;
-          border-radius: 20px;
+          padding: 10px 20px;
+          border-radius: 12px;
           font-family: system-ui, sans-serif;
           font-size: 14px;
-          font-weight: 600;
+          font-weight: 500;
           z-index: 999999;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+          box-shadow: 0 4px 20px rgba(0,0,0,0.4);
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 15px;
         ">
-          <span style="
-            width: 10px;
-            height: 10px;
-            background: #fff;
-            border-radius: 50%;
-            animation: pulse 1s infinite;
-          "></span>
-          CONFIG MODE - Scroll | Drag modal | Position highlight | Ctrl+Shift+S to save
+          <span style="display: flex; align-items: center; gap: 6px;">
+            <span style="width: 8px; height: 8px; background: #ff6b35; border-radius: 50%; animation: pulse 1s infinite;"></span>
+            <strong>CONFIG MODE</strong>
+          </span>
+          <span style="color: #888;">|</span>
+          <span id="config-step-label" style="color: #c9a227;">No step active</span>
+          <span style="color: #888;">|</span>
+          <button id="config-save-step" style="
+            background: #c9a227;
+            color: #1a2744;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+          ">💾 Save Step</button>
+          <button id="config-export-all" style="
+            background: #4a5568;
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+          ">📥 Export All</button>
+          <span id="config-save-count" style="
+            background: #2d3748;
+            padding: 4px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+          ">0 saved</span>
         </div>
         <style>
           @keyframes pulse {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            50% { opacity: 0.3; }
+          }
+          #config-save-step:hover { background: #d4af37; }
+          #config-export-all:hover { background: #5a6578; }
+          .config-save-flash {
+            animation: saveFlash 0.5s ease;
+          }
+          @keyframes saveFlash {
+            0%, 100% { background: #c9a227; }
+            50% { background: #4ade80; }
           }
           /* Override ALL position rules from index.html when dragging */
           body.config-mode-active .shepherd-element[data-config-enabled],
@@ -326,6 +407,86 @@
       `;
       document.body.appendChild(this.indicator);
       document.body.classList.add('config-mode-active');
+
+      // Attach button handlers
+      document.getElementById('config-save-step').addEventListener('click', () => this.saveCurrentStep());
+      document.getElementById('config-export-all').addEventListener('click', () => this.exportConfig());
+
+      // Update saved count
+      this.updateSaveCount();
+    },
+
+    /**
+     * Save current step's positions (called by Save Step button)
+     */
+    saveCurrentStep() {
+      const shepherdModal = document.querySelector('.shepherd-element');
+      if (!shepherdModal) {
+        alert('No tour step active. Start the tour first!');
+        return;
+      }
+
+      // Get step ID from Shepherd API (most reliable)
+      const resolvedStepId = this.getCurrentStepId();
+
+      if (!resolvedStepId) {
+        alert('Could not identify current step.');
+        return;
+      }
+
+      // Sync both tracking variables
+      this.currentStepId = resolvedStepId;
+      this.lastStepTitle = resolvedStepId;
+
+      // Save highlight position with explicit step ID
+      if (this.highlightBox) {
+        this.saveHighlightPosition(resolvedStepId);
+      }
+
+      // Save modal position (force save regardless of drag state)
+      const rect = shepherdModal.getBoundingClientRect();
+      if (!this.positions[resolvedStepId]) {
+        this.positions[resolvedStepId] = {};
+      }
+      this.positions[resolvedStepId].scrollY = window.scrollY;
+      this.positions[resolvedStepId].modal = {
+        top: ((rect.top / window.innerHeight) * 100).toFixed(2) + '%',
+        left: ((rect.left / window.innerWidth) * 100).toFixed(2) + '%'
+      };
+
+      // Visual feedback
+      const btn = document.getElementById('config-save-step');
+      btn.classList.add('config-save-flash');
+      btn.textContent = '✓ Saved!';
+      setTimeout(() => {
+        btn.classList.remove('config-save-flash');
+        btn.textContent = '💾 Save Step';
+      }, 1000);
+
+      // Update count and label
+      this.updateSaveCount();
+      console.log(`[ModalConfigMode] Manually saved step "${resolvedStepId}":`, this.positions[resolvedStepId]);
+    },
+
+    /**
+     * Update the saved count display
+     */
+    updateSaveCount() {
+      const countEl = document.getElementById('config-save-count');
+      if (countEl) {
+        const count = Object.keys(this.positions).length;
+        countEl.textContent = `${count} saved`;
+      }
+    },
+
+    /**
+     * Update the step label in toolbar
+     */
+    updateStepLabel(stepName) {
+      const labelEl = document.getElementById('config-step-label');
+      if (labelEl) {
+        labelEl.textContent = stepName ? `Step: ${stepName.substring(0, 25)}` : 'No step active';
+      }
     },
 
     /**
@@ -341,8 +502,24 @@
 
     /**
      * Observe DOM for Swal AND Shepherd modals and make them draggable
+     * Uses polling to reliably detect step changes
      */
     observeModals() {
+      // Track last known step to detect changes
+      this.lastStepTitle = '';
+
+      // Polling interval for step change detection (more reliable than MutationObserver)
+      let pollCount = 0;
+      this.stepPollInterval = setInterval(() => {
+        if (!this.isActive) return;
+        pollCount++;
+        if (pollCount % 25 === 0) { // Log every 5 seconds
+          console.log(`[ModalConfigMode] Poll #${pollCount}, lastStep: "${this.lastStepTitle}", currentStepId: "${this.currentStepId}"`);
+        }
+        this.checkForStepChange();
+      }, 200);
+
+      // Also watch for new modals being added
       const observer = new MutationObserver((mutations) => {
         if (!this.isActive) return;
 
@@ -354,6 +531,8 @@
                            (node.classList?.contains('swal2-popup') ? node : null);
               if (swalPopup && !swalPopup.dataset.configEnabled) {
                 this.enableDragging(swalPopup);
+                this.currentStepId = this.generateModalId(swalPopup);
+                console.log(`[ModalConfigMode] New SweetAlert detected: "${this.currentStepId}"`);
               }
 
               // Check for Shepherd.js tour modals
@@ -375,6 +554,111 @@
           this.enableDragging(el);
         });
       };
+    },
+
+    /**
+     * Get current step ID from Shepherd's API (most reliable source)
+     */
+    getCurrentStepId() {
+      // Try Shepherd's active tour API first (most reliable)
+      if (window.Shepherd?.activeTour?.currentStep?.id) {
+        return window.Shepherd.activeTour.currentStep.id;
+      }
+      // Fallback to DOM attribute
+      const shepherdModal = document.querySelector('.shepherd-element');
+      if (shepherdModal?.dataset?.shepherdStepId) {
+        return shepherdModal.dataset.shepherdStepId;
+      }
+      // Last resort: use title text
+      const titleEl = shepherdModal?.querySelector('.shepherd-text h3');
+      if (titleEl?.textContent) {
+        return titleEl.textContent
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, '')
+          .replace(/\s+/g, '-')
+          .substring(0, 50);
+      }
+      return null;
+    },
+
+    /**
+     * Check for Shepherd step changes (called by polling interval)
+     */
+    checkForStepChange() {
+      const shepherdModal = document.querySelector('.shepherd-element');
+      if (!shepherdModal) {
+        // Only log once when modal disappears
+        if (this._hadModal) {
+          console.log('[ModalConfigMode] Modal disappeared');
+          this._hadModal = false;
+        }
+        return;
+      }
+      this._hadModal = true;
+
+      // Use Shepherd's API to get current step (most reliable)
+      const stepId = this.getCurrentStepId();
+
+      // Debug: log first detection
+      if (!this._firstCheck) {
+        this._firstCheck = true;
+        console.log(`[ModalConfigMode] First check - stepId: "${stepId}", lastStepTitle: "${this.lastStepTitle}"`);
+      }
+
+      if (!stepId || stepId === this.lastStepTitle) return;
+
+      // Step has changed!
+      console.log(`[ModalConfigMode] Step change detected: "${this.lastStepTitle}" -> "${stepId}"`);
+
+      // SAVE current positions BEFORE changing steps
+      if (this.currentStepId && this.highlightBox) {
+        this.saveHighlightPosition();
+        this.saveModalPosition(shepherdModal);
+        console.log(`[ModalConfigMode] Auto-saved for: "${this.currentStepId}"`);
+      }
+
+      // Update to the new step
+      this.lastStepTitle = stepId;
+      this.currentStepId = stepId;  // Use the step ID directly
+      console.log(`[ModalConfigMode] Now on step: "${this.currentStepId}"`);
+
+      // Update toolbar step label
+      const displayTitle = shepherdModal.querySelector('.shepherd-text h3')?.textContent || stepId;
+      this.updateStepLabel(displayTitle);
+
+      // RESTORE saved positions if returning to a previously configured step
+      const savedPos = this.positions[this.currentStepId];
+      if (savedPos) {
+        console.log(`[ModalConfigMode] Restoring saved positions for: "${this.currentStepId}"`);
+
+        // Restore modal position
+        if (savedPos.modal) {
+          shepherdModal.style.setProperty('--drag-top', savedPos.modal.top);
+          shepherdModal.style.setProperty('--drag-left', savedPos.modal.left);
+        }
+
+        // Restore highlight position
+        if (savedPos.highlight && this.highlightBox) {
+          this.highlightBox.style.top = savedPos.highlight.top;
+          this.highlightBox.style.left = savedPos.highlight.left;
+          this.highlightBox.style.width = savedPos.highlight.width;
+          this.highlightBox.style.height = savedPos.highlight.height;
+        }
+      }
+
+      // Update highlight box label to show current step
+      if (this.highlightBox) {
+        const label = this.highlightBox.querySelector('.highlight-label');
+        if (label) {
+          const displayTitle = shepherdModal.querySelector('.shepherd-text h3')?.textContent || stepId;
+          label.textContent = `STEP: ${displayTitle.substring(0, 25)} - Drag to move`;
+        }
+      }
+
+      // Enable dragging if not already enabled
+      if (!shepherdModal.dataset.configEnabled) {
+        this.enableDragging(shepherdModal);
+      }
     },
 
     /**
@@ -458,7 +742,10 @@
         // Save position with new structure
         const rect = popup.getBoundingClientRect();
         const modalId = this.generateModalId(popup);
+
+        // Sync both tracking variables to prevent stale references
         this.currentStepId = modalId;
+        this.lastStepTitle = modalId;
 
         // Initialize position entry if not exists
         if (!this.positions[modalId]) {
@@ -472,6 +759,9 @@
         };
 
         console.log(`[ModalConfigMode] Saved modal position for "${modalId}":`, this.positions[modalId].modal);
+
+        // Reset flag - we already saved directly, don't need auto-save to overwrite
+        this.modalWasDragged = false;
       };
 
       popup.addEventListener('mousedown', onMouseDown);
@@ -480,13 +770,23 @@
     },
 
     /**
-     * Generate a unique ID for a modal based on its title
+     * Generate a unique ID for a modal - PREFERS Shepherd API for consistency
      */
     generateModalId(popup) {
-      // Check for SweetAlert2 title or Shepherd.js title
-      const title = popup.querySelector('.swal2-title')?.textContent ||
-                    popup.querySelector('.shepherd-text h3')?.textContent ||
-                    popup.dataset.shepherdStepId ||
+      // FIRST: Try Shepherd's API (most reliable for tour modals)
+      const shepherdStepId = this.getCurrentStepId();
+      if (shepherdStepId) {
+        return shepherdStepId;
+      }
+
+      // SECOND: Check DOM attribute
+      if (popup.dataset && popup.dataset.shepherdStepId) {
+        return popup.dataset.shepherdStepId;
+      }
+
+      // FALLBACK: Use title text for SweetAlert2 or other modals
+      const title = popup.querySelector?.('.swal2-title')?.textContent ||
+                    popup.querySelector?.('.shepherd-text h3')?.textContent ||
                     '';
       const id = title
         .toLowerCase()
@@ -583,12 +883,31 @@
       }
     },
 
+    // Store captured viewport for responsive scaling (set when loading config)
+    capturedViewport: { width: 1280, height: 720 },
+
     /**
-     * Show highlight cutout during tour playback
+     * Show highlight cutout during tour playback (with responsive scaling)
      */
     showHighlight(highlightConfig) {
       // Remove existing highlight
       this.hideHighlight();
+
+      // Calculate scale factors for responsive sizing
+      const scaleX = window.innerWidth / this.capturedViewport.width;
+      const scaleY = window.innerHeight / this.capturedViewport.height;
+
+      // Parse and scale pixel values, keep percentage values as-is
+      const scaleValue = (value, scale) => {
+        if (typeof value === 'string' && value.endsWith('px')) {
+          const px = parseFloat(value);
+          return Math.round(px * scale) + 'px';
+        }
+        return value; // percentages pass through unchanged
+      };
+
+      const scaledWidth = scaleValue(highlightConfig.width, scaleX);
+      const scaledHeight = scaleValue(highlightConfig.height, scaleY);
 
       const highlight = document.createElement('div');
       highlight.id = 'tour-highlight-cutout';
@@ -596,16 +915,21 @@
         position: fixed;
         top: ${highlightConfig.top};
         left: ${highlightConfig.left};
-        width: ${highlightConfig.width};
-        height: ${highlightConfig.height};
+        width: ${scaledWidth};
+        height: ${scaledHeight};
         border: 4px solid #c9a227;
         border-radius: 8px;
-        box-shadow: 0 0 0 9999px rgba(0,0,0,0.7);
+        box-shadow: 0 0 0 9999px rgba(0,0,0,0.85);
         z-index: 99998;
         pointer-events: none;
+        transition: all 0.3s ease;
       `;
       document.body.appendChild(highlight);
-      console.log('[ModalConfigMode] Highlight shown:', highlightConfig);
+      console.log('[ModalConfigMode] Highlight shown (scaled):', {
+        original: { width: highlightConfig.width, height: highlightConfig.height },
+        scaled: { width: scaledWidth, height: scaledHeight },
+        scale: { x: scaleX.toFixed(2), y: scaleY.toFixed(2) }
+      });
     },
 
     /**
