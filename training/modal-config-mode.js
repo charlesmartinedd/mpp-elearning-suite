@@ -1,16 +1,16 @@
 /**
- * Modal Config Mode - Reusable SweetAlert2 Position Picker
+ * Modal Config Mode - Enhanced Position & Highlight Picker
  *
- * Allows you to drag modals to desired positions and export a JSON config.
+ * Allows you to configure modals, scroll positions, and highlight areas.
  *
  * Usage:
  *   1. Add this script to your project
  *   2. Press Ctrl+Shift+P to toggle config mode
- *   3. Trigger modals and drag them to desired positions
+ *   3. Scroll page, drag modals, and position highlight box
  *   4. Press Ctrl+Shift+S to download config JSON
  *   5. Use ModalConfigMode.loadConfig(json) to apply saved positions
  *
- * @version 1.0.0
+ * @version 2.0.0
  */
 (function() {
   'use strict';
@@ -20,6 +20,8 @@
     positions: {},
     indicator: null,
     dragState: null,
+    highlightBox: null,
+    currentStepId: null,
 
     /**
      * Initialize the config mode listeners
@@ -53,17 +55,212 @@
 
       if (this.isActive) {
         this.showIndicator();
+        this.createHighlightBox();
         // Enable dragging on any existing modals (especially Shepherd tour modals)
         const existingShepherd = document.querySelector('.shepherd-element');
         if (existingShepherd && !existingShepherd.dataset.configEnabled) {
           console.log('[ModalConfigMode] Found existing Shepherd modal, enabling drag');
           this.enableDragging(existingShepherd);
+          // Store current step ID
+          this.currentStepId = this.generateModalId(existingShepherd);
         }
-        console.log('[ModalConfigMode] Config mode ON - Modals are now draggable');
+        // Allow page scrolling in config mode
+        document.body.style.overflow = 'auto';
+        document.body.style.position = 'static';
+        console.log('[ModalConfigMode] Config mode ON - Modals draggable, highlight box active');
       } else {
         this.hideIndicator();
+        this.removeHighlightBox();
         console.log('[ModalConfigMode] Config mode OFF');
       }
+    },
+
+    /**
+     * Create the draggable/resizable highlight box
+     */
+    createHighlightBox() {
+      if (this.highlightBox) return;
+
+      this.highlightBox = document.createElement('div');
+      this.highlightBox.id = 'config-highlight-box';
+      this.highlightBox.innerHTML = `
+        <div class="highlight-label">HIGHLIGHT AREA - Drag to move, corners to resize</div>
+        <div class="resize-handle resize-nw" data-resize="nw"></div>
+        <div class="resize-handle resize-ne" data-resize="ne"></div>
+        <div class="resize-handle resize-sw" data-resize="sw"></div>
+        <div class="resize-handle resize-se" data-resize="se"></div>
+      `;
+      this.highlightBox.style.cssText = `
+        position: fixed;
+        border: 4px solid #c9a227;
+        border-radius: 8px;
+        background: transparent;
+        z-index: 99998;
+        cursor: move;
+        width: 300px;
+        height: 200px;
+        top: 30%;
+        left: 30%;
+        box-shadow: 0 0 0 9999px rgba(0,0,0,0.7);
+        pointer-events: auto;
+      `;
+
+      // Add styles for resize handles and label
+      const style = document.createElement('style');
+      style.id = 'highlight-box-styles';
+      style.textContent = `
+        #config-highlight-box .highlight-label {
+          position: absolute;
+          top: -28px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #c9a227;
+          color: #1a2744;
+          padding: 4px 12px;
+          border-radius: 4px;
+          font-size: 11px;
+          font-family: system-ui, sans-serif;
+          font-weight: 600;
+          white-space: nowrap;
+        }
+        #config-highlight-box .resize-handle {
+          position: absolute;
+          width: 16px;
+          height: 16px;
+          background: #c9a227;
+          border: 2px solid #1a2744;
+          border-radius: 4px;
+        }
+        #config-highlight-box .resize-nw { top: -8px; left: -8px; cursor: nw-resize; }
+        #config-highlight-box .resize-ne { top: -8px; right: -8px; cursor: ne-resize; }
+        #config-highlight-box .resize-sw { bottom: -8px; left: -8px; cursor: sw-resize; }
+        #config-highlight-box .resize-se { bottom: -8px; right: -8px; cursor: se-resize; }
+      `;
+      document.head.appendChild(style);
+      document.body.appendChild(this.highlightBox);
+
+      this.enableHighlightDragResize();
+    },
+
+    /**
+     * Enable drag and resize for highlight box
+     */
+    enableHighlightDragResize() {
+      const box = this.highlightBox;
+      let isDragging = false;
+      let isResizing = false;
+      let resizeDir = null;
+      let startX, startY, startLeft, startTop, startWidth, startHeight;
+
+      const onMouseDown = (e) => {
+        const handle = e.target.closest('.resize-handle');
+        if (handle) {
+          isResizing = true;
+          resizeDir = handle.dataset.resize;
+        } else if (e.target === box || e.target.classList.contains('highlight-label')) {
+          isDragging = true;
+        } else {
+          return;
+        }
+
+        const rect = box.getBoundingClientRect();
+        startX = e.clientX;
+        startY = e.clientY;
+        startLeft = rect.left;
+        startTop = rect.top;
+        startWidth = rect.width;
+        startHeight = rect.height;
+        e.preventDefault();
+        e.stopPropagation();
+      };
+
+      const onMouseMove = (e) => {
+        if (!isDragging && !isResizing) return;
+
+        const deltaX = e.clientX - startX;
+        const deltaY = e.clientY - startY;
+
+        if (isDragging) {
+          box.style.left = (startLeft + deltaX) + 'px';
+          box.style.top = (startTop + deltaY) + 'px';
+        } else if (isResizing) {
+          let newLeft = startLeft;
+          let newTop = startTop;
+          let newWidth = startWidth;
+          let newHeight = startHeight;
+
+          if (resizeDir.includes('e')) newWidth = startWidth + deltaX;
+          if (resizeDir.includes('w')) {
+            newWidth = startWidth - deltaX;
+            newLeft = startLeft + deltaX;
+          }
+          if (resizeDir.includes('s')) newHeight = startHeight + deltaY;
+          if (resizeDir.includes('n')) {
+            newHeight = startHeight - deltaY;
+            newTop = startTop + deltaY;
+          }
+
+          // Minimum size
+          if (newWidth >= 100) {
+            box.style.width = newWidth + 'px';
+            box.style.left = newLeft + 'px';
+          }
+          if (newHeight >= 80) {
+            box.style.height = newHeight + 'px';
+            box.style.top = newTop + 'px';
+          }
+        }
+      };
+
+      const onMouseUp = () => {
+        if (isDragging || isResizing) {
+          this.saveHighlightPosition();
+        }
+        isDragging = false;
+        isResizing = false;
+        resizeDir = null;
+      };
+
+      box.addEventListener('mousedown', onMouseDown);
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    },
+
+    /**
+     * Save highlight box position for current step
+     */
+    saveHighlightPosition() {
+      if (!this.highlightBox || !this.currentStepId) return;
+
+      const rect = this.highlightBox.getBoundingClientRect();
+
+      // Initialize position entry if not exists
+      if (!this.positions[this.currentStepId]) {
+        this.positions[this.currentStepId] = {};
+      }
+
+      this.positions[this.currentStepId].scrollY = window.scrollY;
+      this.positions[this.currentStepId].highlight = {
+        top: ((rect.top / window.innerHeight) * 100).toFixed(2) + '%',
+        left: ((rect.left / window.innerWidth) * 100).toFixed(2) + '%',
+        width: rect.width + 'px',
+        height: rect.height + 'px'
+      };
+
+      console.log(`[ModalConfigMode] Saved highlight for "${this.currentStepId}":`,
+        this.positions[this.currentStepId].highlight);
+    },
+
+    /**
+     * Remove the highlight box
+     */
+    removeHighlightBox() {
+      if (this.highlightBox) {
+        this.highlightBox.remove();
+        this.highlightBox = null;
+      }
+      const style = document.getElementById('highlight-box-styles');
+      if (style) style.remove();
     },
 
     /**
@@ -100,7 +297,7 @@
             border-radius: 50%;
             animation: pulse 1s infinite;
           "></span>
-          CONFIG MODE - Drag modals to position | Ctrl+Shift+S to save
+          CONFIG MODE - Scroll | Drag modal | Position highlight | Ctrl+Shift+S to save
         </div>
         <style>
           @keyframes pulse {
@@ -258,16 +455,23 @@
         if (!isDragging) return;
         isDragging = false;
 
-        // Save position
+        // Save position with new structure
         const rect = popup.getBoundingClientRect();
         const modalId = this.generateModalId(popup);
+        this.currentStepId = modalId;
 
-        this.positions[modalId] = {
+        // Initialize position entry if not exists
+        if (!this.positions[modalId]) {
+          this.positions[modalId] = {};
+        }
+
+        this.positions[modalId].scrollY = window.scrollY;
+        this.positions[modalId].modal = {
           top: ((rect.top / window.innerHeight) * 100).toFixed(2) + '%',
           left: ((rect.left / window.innerWidth) * 100).toFixed(2) + '%'
         };
 
-        console.log(`[ModalConfigMode] Saved position for "${modalId}":`, this.positions[modalId]);
+        console.log(`[ModalConfigMode] Saved modal position for "${modalId}":`, this.positions[modalId].modal);
       };
 
       popup.addEventListener('mousedown', onMouseDown);
@@ -302,7 +506,7 @@
       }
 
       const config = {
-        version: '1.0',
+        version: '2.0',
         capturedAt: new Date().toISOString(),
         viewportSize: {
           width: window.innerWidth,
@@ -348,22 +552,68 @@
     },
 
     /**
-     * Apply saved position to a modal
+     * Apply saved position to a modal (v2.0 format with modal/highlight)
      */
     applyPosition(popup) {
       if (!this.savedPositions) return;
 
       const modalId = this.generateModalId(popup);
-      const position = this.savedPositions[modalId];
+      const posData = this.savedPositions[modalId];
 
-      if (position) {
+      if (posData) {
+        // Handle v2.0 format with modal key
+        const modalPos = posData.modal || posData;
+
         popup.style.position = 'fixed';
-        popup.style.top = position.top;
-        popup.style.left = position.left;
+        popup.style.top = modalPos.top;
+        popup.style.left = modalPos.left;
         popup.style.transform = 'none';
         popup.style.margin = '0';
-        console.log(`[ModalConfigMode] Applied position for "${modalId}"`);
+        console.log(`[ModalConfigMode] Applied modal position for "${modalId}"`);
+
+        // Apply scroll position if specified
+        if (posData.scrollY !== undefined) {
+          window.scrollTo({ top: posData.scrollY, behavior: 'smooth' });
+        }
+
+        // Apply highlight if specified
+        if (posData.highlight) {
+          this.showHighlight(posData.highlight);
+        }
       }
+    },
+
+    /**
+     * Show highlight cutout during tour playback
+     */
+    showHighlight(highlightConfig) {
+      // Remove existing highlight
+      this.hideHighlight();
+
+      const highlight = document.createElement('div');
+      highlight.id = 'tour-highlight-cutout';
+      highlight.style.cssText = `
+        position: fixed;
+        top: ${highlightConfig.top};
+        left: ${highlightConfig.left};
+        width: ${highlightConfig.width};
+        height: ${highlightConfig.height};
+        border: 4px solid #c9a227;
+        border-radius: 8px;
+        box-shadow: 0 0 0 9999px rgba(0,0,0,0.7);
+        z-index: 99998;
+        pointer-events: none;
+      `;
+      document.body.appendChild(highlight);
+      console.log('[ModalConfigMode] Highlight shown:', highlightConfig);
+    },
+
+    /**
+     * Hide highlight cutout
+     */
+    hideHighlight() {
+      const existing = document.getElementById('tour-highlight-cutout');
+      if (existing) existing.remove();
     },
 
     /**
