@@ -27,13 +27,13 @@
     init() {
       // Keyboard shortcuts
       document.addEventListener('keydown', (e) => {
-        // Ctrl+Shift+P to toggle config mode
-        if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+        // Ctrl+Shift+P to toggle config mode (case-insensitive)
+        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'p') {
           e.preventDefault();
           this.toggle();
         }
-        // Ctrl+Shift+S to save/export config
-        if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+        // Ctrl+Shift+S to save/export config (case-insensitive)
+        if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 's') {
           e.preventDefault();
           this.exportConfig();
         }
@@ -53,6 +53,12 @@
 
       if (this.isActive) {
         this.showIndicator();
+        // Enable dragging on any existing modals (especially Shepherd tour modals)
+        const existingShepherd = document.querySelector('.shepherd-element');
+        if (existingShepherd && !existingShepherd.dataset.configEnabled) {
+          console.log('[ModalConfigMode] Found existing Shepherd modal, enabling drag');
+          this.enableDragging(existingShepherd);
+        }
         console.log('[ModalConfigMode] Config mode ON - Modals are now draggable');
       } else {
         this.hideIndicator();
@@ -101,9 +107,28 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
           }
+          /* Override ALL position rules from index.html when dragging */
+          body.config-mode-active .shepherd-element[data-config-enabled],
+          body.config-mode-active.tour-active .shepherd-element[data-config-enabled],
+          body.config-mode-active.tour-active .shepherd-element.pos-center[data-config-enabled],
+          body.config-mode-active.tour-active .shepherd-element.pos-top[data-config-enabled],
+          body.config-mode-active.tour-active .shepherd-element.pos-bottom[data-config-enabled],
+          body.config-mode-active.tour-active .shepherd-element.pos-top-left[data-config-enabled],
+          body.config-mode-active.tour-active .shepherd-element.pos-top-right[data-config-enabled],
+          body.config-mode-active.tour-active .shepherd-element.pos-bottom-left[data-config-enabled],
+          body.config-mode-active.tour-active .shepherd-element.pos-bottom-right[data-config-enabled],
+          body.config-mode-active .shepherd-element.tour-redesigned[data-config-enabled] {
+            transform: none !important;
+            transition: none !important;
+            top: var(--drag-top, 50%) !important;
+            left: var(--drag-left, 50%) !important;
+            right: auto !important;
+            bottom: auto !important;
+          }
         </style>
       `;
       document.body.appendChild(this.indicator);
+      document.body.classList.add('config-mode-active');
     },
 
     /**
@@ -114,10 +139,11 @@
         this.indicator.remove();
         this.indicator = null;
       }
+      document.body.classList.remove('config-mode-active');
     },
 
     /**
-     * Observe DOM for Swal modals and make them draggable
+     * Observe DOM for Swal AND Shepherd modals and make them draggable
      */
     observeModals() {
       const observer = new MutationObserver((mutations) => {
@@ -126,10 +152,18 @@
         mutations.forEach((mutation) => {
           mutation.addedNodes.forEach((node) => {
             if (node.nodeType === 1) {
-              const popup = node.querySelector?.('.swal2-popup') ||
+              // Check for SweetAlert2 modals
+              const swalPopup = node.querySelector?.('.swal2-popup') ||
                            (node.classList?.contains('swal2-popup') ? node : null);
-              if (popup && !popup.dataset.configEnabled) {
-                this.enableDragging(popup);
+              if (swalPopup && !swalPopup.dataset.configEnabled) {
+                this.enableDragging(swalPopup);
+              }
+
+              // Check for Shepherd.js tour modals
+              const shepherdPopup = node.querySelector?.('.shepherd-element') ||
+                           (node.classList?.contains('shepherd-element') ? node : null);
+              if (shepherdPopup && !shepherdPopup.dataset.configEnabled) {
+                this.enableDragging(shepherdPopup);
               }
             }
           });
@@ -137,6 +171,13 @@
       });
 
       observer.observe(document.body, { childList: true, subtree: true });
+
+      // Also check for existing Shepherd modals when config mode is toggled
+      this.enableExistingModals = () => {
+        document.querySelectorAll('.shepherd-element:not([data-config-enabled])').forEach(el => {
+          this.enableDragging(el);
+        });
+      };
     },
 
     /**
@@ -193,11 +234,9 @@
         startLeft = rect.left;
         startTop = rect.top;
 
-        popup.style.position = 'fixed';
-        popup.style.margin = '0';
-        popup.style.top = startTop + 'px';
-        popup.style.left = startLeft + 'px';
-        popup.style.transform = 'none';
+        // Use CSS variables so !important rules can read them
+        popup.style.setProperty('--drag-top', startTop + 'px');
+        popup.style.setProperty('--drag-left', startLeft + 'px');
 
         e.preventDefault();
       };
@@ -208,8 +247,9 @@
         const deltaX = e.clientX - startX;
         const deltaY = e.clientY - startY;
 
-        popup.style.left = (startLeft + deltaX) + 'px';
-        popup.style.top = (startTop + deltaY) + 'px';
+        // Use CSS variables so !important rules can read them
+        popup.style.setProperty('--drag-left', (startLeft + deltaX) + 'px');
+        popup.style.setProperty('--drag-top', (startTop + deltaY) + 'px');
 
         updateBadge();
       };
@@ -239,7 +279,11 @@
      * Generate a unique ID for a modal based on its title
      */
     generateModalId(popup) {
-      const title = popup.querySelector('.swal2-title')?.textContent || '';
+      // Check for SweetAlert2 title or Shepherd.js title
+      const title = popup.querySelector('.swal2-title')?.textContent ||
+                    popup.querySelector('.shepherd-text h3')?.textContent ||
+                    popup.dataset.shepherdStepId ||
+                    '';
       const id = title
         .toLowerCase()
         .replace(/[^a-z0-9\s]/g, '')
